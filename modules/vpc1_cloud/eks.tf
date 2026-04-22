@@ -1,0 +1,43 @@
+# ==========================================
+# EKS 클러스터 및 워커 노드 구성
+# ==========================================
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 20.0"
+
+  cluster_name    = var.cluster_name
+  cluster_version = "1.30"
+
+  # 클러스터를 배치할 VPC와, 컨트롤플레인/워커노드가 통신할 Subnet 지정
+  vpc_id = aws_vpc.this.id
+  subnet_ids = [
+    aws_subnet.private_a.id,
+    aws_subnet.private_b.id
+  ]
+  
+  # 보안 그룹 등 통신을 위해 Private 접근은 기본 허용이며, 외부(로컬 PC)에서 쿠버네티스 API(kubectl) 연결을 위해 Public 도 허용해둡니다.
+  cluster_endpoint_public_access = true
+
+  # ==========================================
+  # Managed Node Groups (워커 노드)
+  # ==========================================
+  eks_managed_node_groups = {
+    bookjjeok_workers = {
+      # 워커 노드 개수: 2개로 요청하셨으므로 기본 2개 구동
+      min_size     = 2
+      max_size     = 5
+      desired_size = 2
+
+      # 요청하신 사양: Large 규격 (t3.large)
+      instance_types = ["t3.large"]
+      
+      labels = {
+        role = "worker"
+      }
+    }
+  }
+
+  tags = {
+    Environment = "prod-cloud"
+  }
+}

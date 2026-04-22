@@ -10,5 +10,5 @@ output "public_subnet_ids" {
 
 output "private_subnet_ids" {
   description = "EKS 클러스터가 위치할 내부 서브넷 ID 목록"
-  value       = [aws_subnet.private_a.id, aws_subnet.private_b1.id, aws_subnet.private_b2.id]
+  value       = [aws_subnet.private_a.id, aws_subnet.private_b.id]
 }
