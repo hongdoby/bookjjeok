@@ -82,7 +82,6 @@ resource "aws_security_group" "nat_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc_cidr]
-    description = "VPC 내부에서 NAT Instance로 들어오는 트래픽"
   }
 
   egress {
@@ -175,7 +174,6 @@ resource "aws_security_group" "k8s_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc_cidr]
-    description = "VPC 내부 전체 허용 (실제 제어는 iptables)"
   }
 
   ingress {
@@ -183,7 +181,6 @@ resource "aws_security_group" "k8s_sg" {
     to_port     = 6443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "K8s API server (ArgoCD, Chaos Mesh Agent 접근용)"
   }
 
   egress {
