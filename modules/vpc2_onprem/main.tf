@@ -78,6 +78,13 @@ resource "aws_security_group" "nat_sg" {
   vpc_id = aws_vpc.vpc2.id
 
   ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -101,6 +108,17 @@ resource "aws_instance" "nat_instance" {
   key_name               = var.key_name
   source_dest_check      = false
   vpc_security_group_ids = [aws_security_group.nat_sg.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    # 기본 인터페이스 자동 감지
+    IFACE=$(ip route | grep default | awk '{print $5}')
+    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    sysctl -p
+    iptables -t nat -A POSTROUTING -o $IFACE -j MASQUERADE
+    apt-get install -y iptables-persistent
+    netfilter-persistent save
+  EOF  
 
   root_block_device {
     volume_type = "gp3"
