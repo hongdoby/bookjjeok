@@ -16,6 +16,8 @@
 
 ## 📐 인프라 아키텍처 (Architecture)
 본 인프라는 환경에 따라 **3개의 VPC(Cloud, On-premise, Shared Hub)**로 세분화하여 구성합니다.
+특히 모니터링(Grafana) 시스템을 운영 클러스터(VPC1/VPC2) 외부에 있는 **VPC3(Shared Hub)로 수집**함으로써, 서비스에 심각한 에러나 클러스터 붕괴 현상이 발생하더라도 추적과 관제가 가능한 **장애 격리(Fault Domain Separation)** 아키텍처를 구현했습니다.
+
 클러스터 별 상세 컴포넌트와 네트워크 흐름 등 전체 인프라 구성도는 [architecture.md](./architecture.md) 파일에서 확인하실 수 있습니다.
 
 ## 🎯 리소스 명명 규칙 (Naming Convention)
