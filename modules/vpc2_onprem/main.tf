@@ -72,6 +72,36 @@ resource "aws_subnet" "private_2c" {
   }
 }
 
+# ─── IAM Role for EC2 (ECR pull 권한) ──────────────
+resource "aws_iam_role" "k8s_node_role" {
+  name = "bookjjeok-cloud-k8s-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = { Name = "bookjjeok-cloud-k8s-node-role" }
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_readonly" {
+  role       = aws_iam_role.k8s_node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_instance_profile" "k8s_node_profile" {
+  name = "bookjjeok-cloud-k8s-node-profile"
+  role = aws_iam_role.k8s_node_role.name
+}
+
 # ─── NAT Instance SG ───────────────────────────────
 resource "aws_security_group" "nat_sg" {
   name   = "bookjjeok-cloud-nat-sg"
@@ -80,6 +110,20 @@ resource "aws_security_group" "nat_sg" {
   ingress {
     from_port   = 22
     to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -96,20 +140,6 @@ resource "aws_security_group" "nat_sg" {
     to_port     = -1
     protocol    = "icmp"
     cidr_blocks = [var.vpc3_cidr]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -147,6 +177,13 @@ resource "aws_instance" "nat_instance" {
   }
 
   tags = { Name = "bookjjeok-cloud-nat-instance" }
+}
+
+# ─── EIP for NAT Instance ──────────────────────────
+resource "aws_eip" "nat_eip" {
+  instance = aws_instance.nat_instance.id
+  domain   = "vpc"
+  tags     = { Name = "bookjjeok-cloud-nat-eip" }
 }
 
 # ─── 라우팅 테이블: 퍼블릭 ──────────────────────────
@@ -260,6 +297,7 @@ resource "aws_instance" "control_plane_2a" {
   subnet_id              = aws_subnet.private_2a.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -278,6 +316,7 @@ resource "aws_instance" "control_plane_2b" {
   subnet_id              = aws_subnet.private_2b.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -296,6 +335,7 @@ resource "aws_instance" "control_plane_2c" {
   subnet_id              = aws_subnet.private_2c.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -315,6 +355,7 @@ resource "aws_instance" "worker_2a" {
   subnet_id              = aws_subnet.private_2a.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -334,6 +375,7 @@ resource "aws_instance" "worker_2b" {
   subnet_id              = aws_subnet.private_2b.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -353,6 +395,7 @@ resource "aws_instance" "worker_2c" {
   subnet_id              = aws_subnet.private_2c.id
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.k8s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_node_profile.name
 
   root_block_device {
     volume_type = "gp3"
@@ -364,10 +407,4 @@ resource "aws_instance" "worker_2c" {
     Role = "worker"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   }
-}
-
-resource "aws_eip" "nat_eip" {
-  instance = aws_instance.nat_instance.id
-  domain   = "vpc"
-  tags     = { Name = "bookjjeok-cloud-nat-eip" }
 }
