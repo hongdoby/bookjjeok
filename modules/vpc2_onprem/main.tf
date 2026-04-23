@@ -323,3 +323,19 @@ resource "aws_instance" "worker_2c" {
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   }
 }
+
+# ─── VPC Peering (vpc2 ↔ vpc3) ─────────────────────
+resource "aws_vpc_peering_connection" "vpc2_to_vpc3" {
+  vpc_id      = aws_vpc.vpc2.id
+  peer_vpc_id = var.vpc3_vpc_id
+  auto_accept = true
+
+  tags = { Name = "bookjjeok-cloud-pcx-vpc2-vpc3" }
+}
+
+# vpc2에서 vpc3로 가는 라우트 추가
+resource "aws_route" "vpc2_to_vpc3" {
+  route_table_id            = aws_route_table.private_rt.id
+  destination_cidr_block    = var.vpc3_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc2_to_vpc3.id
+}

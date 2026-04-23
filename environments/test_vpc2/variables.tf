@@ -50,3 +50,11 @@ variable "key_name" {
   # 본인 키페어 이름으로 교체!
   default = "bookjjeok-yuna-key-pair"
 }
+
+variable "vpc3_vpc_id" {
+  default = "vpc-0c7d25517da97032e"
+}
+
+variable "vpc3_cidr" {
+  default = "10.2.0.0/16"
+}
