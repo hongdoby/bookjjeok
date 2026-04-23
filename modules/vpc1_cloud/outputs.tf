@@ -27,3 +27,13 @@ output "cluster_certificate_authority_data" {
   description = "EKS 클러스터 인증서 데이터"
   value       = module.eks.cluster_certificate_authority_data
 }
+
+output "public_route_table_id" {
+  description = "VPC1 퍼블릭 라우팅 테이블 ID"
+  value       = aws_route_table.public.id
+}
+
+output "private_route_table_id" {
+  description = "VPC1 프라이빗 라우팅 테이블 ID"
+  value       = aws_route_table.private.id
+}

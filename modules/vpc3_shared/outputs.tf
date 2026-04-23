@@ -22,6 +22,16 @@ output "private_subnet_ids" {
   value       = aws_subnet.private[*].id
 }
 
+output "public_route_table_id" {
+  description = "VPC3 퍼블릭 라우팅 테이블 ID"
+  value       = aws_route_table.public.id
+}
+
+output "private_route_table_ids" {
+  description = "VPC3 프라이빗 라우팅 테이블 IDs"
+  value       = aws_route_table.private[*].id
+}
+
 ########################################
 # Bastion
 ########################################
