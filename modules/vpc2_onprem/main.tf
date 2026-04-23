@@ -98,6 +98,20 @@ resource "aws_security_group" "nat_sg" {
     cidr_blocks = [var.vpc3_cidr]
   }
 
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -350,4 +364,10 @@ resource "aws_instance" "worker_2c" {
     Role = "worker"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   }
+}
+
+resource "aws_eip" "nat_eip" {
+  instance = aws_instance.nat_instance.id
+  domain   = "vpc"
+  tags     = { Name = "bookjjeok-cloud-nat-eip" }
 }
