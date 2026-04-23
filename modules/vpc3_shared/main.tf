@@ -188,6 +188,15 @@ resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
   cidr_ipv4         = var.allowed_ssh_cidrs[0]
 }
 
+resource "aws_vpc_security_group_ingress_rule" "bastion_icmp_from_vpc2" {
+  security_group_id = aws_security_group.bastion.id
+  description       = "ICMP from VPC2"
+  from_port         = -1
+  to_port           = -1
+  ip_protocol       = "icmp"
+  cidr_ipv4         = "10.1.0.0/16"
+}
+
 resource "aws_vpc_security_group_egress_rule" "bastion_all" {
   security_group_id = aws_security_group.bastion.id
   ip_protocol       = "-1"
@@ -711,3 +720,19 @@ resource "aws_elasticache_replication_group" "main" {
 #   destination_cidr_block    = var.vpc1_cidr
 #   vpc_peering_connection_id = aws_vpc_peering_connection.vpc3_to_vpc1.id
 # }
+
+########################################
+# VPC2 Peering 라우트
+########################################
+
+resource "aws_route" "public_to_vpc2" {
+  route_table_id            = aws_route_table.public.id
+  destination_cidr_block    = "10.1.0.0/16"
+  vpc_peering_connection_id = "pcx-002f6a13e30b25a62"
+}
+
+resource "aws_route" "private_to_vpc2" {
+  route_table_id            = aws_route_table.private[0].id
+  destination_cidr_block    = "10.1.0.0/16"
+  vpc_peering_connection_id = "pcx-002f6a13e30b25a62"
+}
