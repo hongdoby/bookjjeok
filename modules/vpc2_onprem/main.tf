@@ -72,7 +72,7 @@ resource "aws_subnet" "private_2c" {
   }
 }
 
-# ─── NAT Instance (AZ-a 퍼블릭에만) ────────────────
+# ─── NAT Instance SG ───────────────────────────────
 resource "aws_security_group" "nat_sg" {
   name   = "bookjjeok-cloud-nat-sg"
   vpc_id = aws_vpc.vpc2.id
@@ -91,6 +91,13 @@ resource "aws_security_group" "nat_sg" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc3_cidr]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -101,6 +108,7 @@ resource "aws_security_group" "nat_sg" {
   tags = { Name = "bookjjeok-cloud-nat-sg" }
 }
 
+# ─── NAT Instance ──────────────────────────────────
 resource "aws_instance" "nat_instance" {
   ami                    = var.nat_instance_ami
   instance_type          = var.nat_instance_type
@@ -111,14 +119,13 @@ resource "aws_instance" "nat_instance" {
 
   user_data = <<-EOF
     #!/bin/bash
-    # 기본 인터페이스 자동 감지
     IFACE=$(ip route | grep default | awk '{print $5}')
     echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
     sysctl -p
     iptables -t nat -A POSTROUTING -o $IFACE -j MASQUERADE
     apt-get install -y iptables-persistent
     netfilter-persistent save
-  EOF  
+  EOF
 
   root_block_device {
     volume_type = "gp3"
@@ -155,13 +162,27 @@ resource "aws_route_table_association" "pub_2c" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# ─── 라우팅 테이블: 프라이빗 (전부 NAT Instance로) ──
+# ─── VPC Peering (vpc2 ↔ vpc3) ─────────────────────
+resource "aws_vpc_peering_connection" "vpc2_to_vpc3" {
+  vpc_id      = aws_vpc.vpc2.id
+  peer_vpc_id = var.vpc3_vpc_id
+  auto_accept = true
+
+  tags = { Name = "bookjjeok-cloud-pcx-vpc2-vpc3" }
+}
+
+# ─── 라우팅 테이블: 프라이빗 ──────────────────────────
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.vpc2.id
 
   route {
     cidr_block           = "0.0.0.0/0"
     network_interface_id = aws_instance.nat_instance.primary_network_interface_id
+  }
+
+  route {
+    cidr_block                = var.vpc3_cidr
+    vpc_peering_connection_id = aws_vpc_peering_connection.vpc2_to_vpc3.id
   }
 
   tags = { Name = "bookjjeok-cloud-private-rt" }
@@ -192,6 +213,13 @@ resource "aws_security_group" "k8s_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc_cidr]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.vpc3_cidr]
   }
 
   ingress {
@@ -322,20 +350,4 @@ resource "aws_instance" "worker_2c" {
     Role = "worker"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   }
-}
-
-# ─── VPC Peering (vpc2 ↔ vpc3) ─────────────────────
-resource "aws_vpc_peering_connection" "vpc2_to_vpc3" {
-  vpc_id      = aws_vpc.vpc2.id
-  peer_vpc_id = var.vpc3_vpc_id
-  auto_accept = true
-
-  tags = { Name = "bookjjeok-cloud-pcx-vpc2-vpc3" }
-}
-
-# vpc2에서 vpc3로 가는 라우트 추가
-resource "aws_route" "vpc2_to_vpc3" {
-  route_table_id            = aws_route_table.private_rt.id
-  destination_cidr_block    = var.vpc3_cidr
-  vpc_peering_connection_id = aws_vpc_peering_connection.vpc2_to_vpc3.id
 }
