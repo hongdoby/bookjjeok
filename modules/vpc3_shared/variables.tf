@@ -96,15 +96,7 @@ variable "allowed_ssh_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
-########################################
-# Tailscale
-########################################
 
-variable "tailscale_auth_key" {
-  description = "Tailscale Auth Key (Bastion 등록용)"
-  type        = string
-  sensitive   = true
-}
 
 ########################################
 # RDS

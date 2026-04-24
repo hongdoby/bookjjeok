@@ -24,7 +24,7 @@ data "aws_ami" "al2023" {
 ########################################
 
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  name_prefix = var.project_name
   az_short    = [for az in var.azs : substr(az, -1, 1)]
   peer_owner_id = (
     var.vpc1_owner_account_id != ""
@@ -373,12 +373,6 @@ resource "aws_instance" "bastion" {
   subnet_id              = aws_subnet.public[count.index].id
   vpc_security_group_ids = [aws_security_group.bastion.id]
 
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    curl -fsSL https://tailscale.com/install.sh | sh
-    tailscale up --authkey=${var.tailscale_auth_key} --hostname=${local.name_prefix}-bastion-${local.az_short[count.index]}
-  EOF
-  )
 
   root_block_device {
     volume_type           = "gp3"
