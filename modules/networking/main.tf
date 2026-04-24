@@ -11,7 +11,6 @@ resource "aws_vpc_peering_connection" "vpc1_to_vpc3" {
   vpc_id        = var.vpc1_id
   peer_vpc_id   = var.vpc3_id
   peer_owner_id = local.peer_owner_id
-  peer_region   = var.aws_region
 
   auto_accept = true
 
