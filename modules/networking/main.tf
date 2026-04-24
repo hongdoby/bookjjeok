@@ -20,6 +20,18 @@ resource "aws_vpc_peering_connection" "vpc1_to_vpc3" {
   }
 }
 
+resource "aws_vpc_peering_connection_options" "vpc1_to_vpc3" {
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc3.id
+
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  requester {
+    allow_remote_vpc_dns_resolution = true
+  }
+}
+
 # (Optional) Accepter if auto_accept doesn't work cross-account.
 # In this architecture, they are in the same account (same region ap-northeast-2).
 
@@ -73,6 +85,16 @@ resource "aws_vpc_security_group_ingress_rule" "redis_from_vpc1" {
   description       = "Redis from VPC1 backend pods"
   from_port         = 6379
   to_port           = 6379
+  ip_protocol       = "tcp"
+  cidr_ipv4         = var.vpc1_cidr
+}
+
+# 테스트용: VPC1 -> VPC3 Bastion (22포트) 허용
+resource "aws_vpc_security_group_ingress_rule" "bastion_from_vpc1" {
+  security_group_id = var.vpc3_sg_bastion_id
+  description       = "SSH from VPC1 for testing"
+  from_port         = 22
+  to_port           = 22
   ip_protocol       = "tcp"
   cidr_ipv4         = var.vpc1_cidr
 }

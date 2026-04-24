@@ -18,6 +18,10 @@ module "eks" {
   # 보안 그룹 등 통신을 위해 Private 접근은 기본 허용이며, 외부(로컬 PC)에서 쿠버네티스 API(kubectl) 연결을 위해 Public 도 허용해둡니다.
   cluster_endpoint_public_access = true
 
+  # [추가] 클러스터 생성자(현재 테라폼 실행 계정)에게 관리자 권한 부여
+  authentication_mode                         = "API_AND_CONFIG_MAP"
+  enable_cluster_creator_admin_permissions = true
+
   # ==========================================
   # Managed Node Groups (워커 노드)
   # ==========================================

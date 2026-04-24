@@ -70,3 +70,8 @@ variable "vpc3_sg_redis_id" {
   type        = string
   description = "VPC3 Redis Security Group ID"
 }
+
+variable "vpc3_sg_bastion_id" {
+  type        = string
+  description = "VPC3 Bastion Security Group ID"
+}
