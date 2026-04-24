@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos-mesh
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: chaos-mesh
+  namespace: chaos-mesh
+spec:
+  chart: chaos-mesh
+  repo: https://charts.chaos-mesh.org
+  targetNamespace: chaos-mesh
+  set:
+    chaosDaemon.runtime: containerd
+    chaosDaemon.socketPath: /run/containerd/containerd.sock
