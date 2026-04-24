@@ -16,6 +16,6 @@ module "vpc2_onprem" {
   nat_instance_ami  = var.nat_instance_ami
   nat_instance_type = var.nat_instance_type
   key_name          = var.key_name
-  vpc3_vpc_id       = var.vpc3_vpc_id
+  vpc1_cidr         = var.vpc1_cidr
   vpc3_cidr         = var.vpc3_cidr
 }

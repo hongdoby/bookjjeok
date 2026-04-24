@@ -39,6 +39,29 @@ variable "vpc1_private_route_table_id" {
 }
 
 #====================
+# VPC2 정보
+#====================
+variable "vpc2_id" {
+  type        = string
+  description = "VPC2 ID"
+}
+
+variable "vpc2_cidr" {
+  type        = string
+  description = "VPC2 CIDR Block"
+}
+
+variable "vpc2_public_route_table_id" {
+  type        = string
+  description = "VPC2 Public Route Table ID"
+}
+
+variable "vpc2_private_route_table_id" {
+  type        = string
+  description = "VPC2 Private Route Table ID"
+}
+
+#====================
 # VPC3 정보
 #====================
 variable "vpc3_id" {
@@ -74,27 +97,4 @@ variable "vpc3_sg_redis_id" {
 variable "vpc3_sg_bastion_id" {
   type        = string
   description = "VPC3 Bastion Security Group ID"
-}
-
-#====================
-# VPC2 정보
-#====================
-variable "vpc2_id" {
-  type        = string
-  description = "VPC2 ID"
-}
-
-variable "vpc2_cidr" {
-  type        = string
-  description = "VPC2 CIDR Block"
-}
-
-variable "vpc2_public_route_table_id" {
-  type        = string
-  description = "VPC2 Public Route Table ID"
-}
-
-variable "vpc2_private_route_table_id" {
-  type        = string
-  description = "VPC2 Private Route Table ID"
 }
