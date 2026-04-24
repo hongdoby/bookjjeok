@@ -4,13 +4,21 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.0"
+    }
   }
   required_version = ">= 1.0.0"
 }
 
 provider "aws" {
   region = "ap-northeast-2"
-  
+
   default_tags {
     tags = {
       Project     = "bookjjeok-cloud"
@@ -21,15 +29,13 @@ provider "aws" {
 }
 
 provider "kubernetes" {
-  host                   = module.vpc1_cloud.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.vpc1_cloud.cluster_certificate_authority_data)
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    args        = ["eks", "get-token", "--cluster-name", module.vpc1_cloud.cluster_name]
-    command     = "aws"
-  }
+  # 로컬에서 성공한 kubeconfig를 직접 참조
+  config_path = "~/.kube/config"
 }
 
 provider "helm" {
-  # Helm v3.x: kubernetes provider 설정을 자동으로 상속받음
+  kubernetes {
+    # 로컬에서 성공한 kubeconfig를 직접 참조
+    config_path = "~/.kube/config"
+  }
 }
