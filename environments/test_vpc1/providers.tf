@@ -28,14 +28,20 @@ provider "aws" {
   }
 }
 
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.vpc1_cloud.cluster_name
+}
+
 provider "kubernetes" {
-  # 로컬에서 성공한 kubeconfig를 직접 참조
-  config_path = "~/.kube/config"
+  host                   = module.vpc1_cloud.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.vpc1_cloud.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 provider "helm" {
   kubernetes {
-    # 로컬에서 성공한 kubeconfig를 직접 참조
-    config_path = "~/.kube/config"
+    host                   = module.vpc1_cloud.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.vpc1_cloud.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
   }
 }

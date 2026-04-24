@@ -126,3 +126,8 @@ output "sg_redis_id" {
   description = "ElastiCache Redis Security Group ID"
   value       = aws_security_group.redis.id
 }
+
+output "argocd_role_arn" {
+  description = "ArgoCD 인스턴스가 사용하는 IAM Role ARN"
+  value       = aws_iam_role.argocd.arn
+}

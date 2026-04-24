@@ -45,12 +45,17 @@ data "aws_security_group" "bastion" {
   }
 }
 
+data "aws_iam_role" "argocd" {
+  name = "book-exchange-prod-argocd-role"
+}
+
 module "vpc1_cloud" {
   source = "../../modules/vpc1_cloud"
 
-  vpc_cidr     = var.vpc1_cidr
-  prefix       = var.vpc1_prefix
-  cluster_name = var.vpc1_cluster_name
+  vpc_cidr        = var.vpc1_cidr
+  prefix          = var.vpc1_prefix
+  cluster_name    = var.vpc1_cluster_name
+  argocd_role_arn = data.aws_iam_role.argocd.arn
 }
 
 module "networking" {
