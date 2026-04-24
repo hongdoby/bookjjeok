@@ -1,6 +1,5 @@
 module "vpc3_shared" {
   source       = "../../modules/vpc3_shared"
-  project_name = "bookjjeok-cloud"
 
 
   db_instance_class    = "db.t4g.micro"

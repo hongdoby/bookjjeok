@@ -24,7 +24,7 @@ data "aws_ami" "al2023" {
 ########################################
 
 locals {
-  name_prefix = var.project_name
+  name_prefix = "${var.project_name}-${var.environment}"
   az_short    = [for az in var.azs : substr(az, -1, 1)]
   peer_owner_id = (
     var.vpc1_owner_account_id != ""
