@@ -373,12 +373,6 @@ resource "aws_instance" "bastion" {
   subnet_id              = aws_subnet.public[count.index].id
   vpc_security_group_ids = [aws_security_group.bastion.id]
 
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    curl -fsSL https://tailscale.com/install.sh | sh
-    tailscale up --authkey=${var.tailscale_auth_key} --hostname=${local.name_prefix}-bastion-${local.az_short[count.index]}
-  EOF
-  )
 
   root_block_device {
     volume_type           = "gp3"
@@ -458,6 +452,22 @@ resource "aws_lb_listener" "http" {
   }
 
   tags = { Name = "${local.name_prefix}-vpc3-http-listener" }
+}
+
+resource "aws_lb_listener_rule" "argocd" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.argocd.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/argocd*"]
+    }
+  }
 }
 
 ########################################
@@ -735,4 +745,100 @@ resource "aws_route" "private_to_vpc2" {
   route_table_id            = aws_route_table.private[0].id
   destination_cidr_block    = "10.1.0.0/16"
   vpc_peering_connection_id = "pcx-002f6a13e30b25a62"
+}
+
+########################################
+# SECURITY GROUP — Monitoring
+########################################
+
+resource "aws_security_group" "monitoring" {
+  name_prefix = "${local.name_prefix}-monitoring-"
+  description = "Prometheus + Grafana access"
+  vpc_id      = aws_vpc.vpc3.id
+
+  tags = { Name = "${local.name_prefix}-monitoring-sg" }
+
+  lifecycle { create_before_destroy = true }
+}
+
+# Grafana 대시보드 (3000)
+resource "aws_vpc_security_group_ingress_rule" "monitoring_grafana" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "Grafana from Bastion"
+  from_port         = 3000
+  to_port           = 3000
+  ip_protocol       = "tcp"
+  referenced_security_group_id = aws_security_group.bastion.id
+}
+
+# Prometheus (9090)
+resource "aws_vpc_security_group_ingress_rule" "monitoring_prometheus" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "Prometheus from Bastion"
+  from_port         = 9090
+  to_port           = 9090
+  ip_protocol       = "tcp"
+  referenced_security_group_id = aws_security_group.bastion.id
+}
+
+# VPC2에서 Prometheus scrape 허용 (9100 Node Exporter)
+resource "aws_vpc_security_group_ingress_rule" "monitoring_from_vpc2" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "Node Exporter from VPC2"
+  from_port         = 9100
+  to_port           = 9100
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "10.1.0.0/16"
+}
+
+# SSH from Bastion
+resource "aws_vpc_security_group_ingress_rule" "monitoring_ssh" {
+  security_group_id = aws_security_group.monitoring.id
+  description       = "SSH from Bastion"
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  referenced_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "monitoring_all" {
+  security_group_id = aws_security_group.monitoring.id
+  ip_protocol       = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+########################################
+# Monitoring EC2 (Prometheus + Grafana)
+########################################
+
+resource "aws_instance" "monitoring" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = var.monitoring_instance_type
+  key_name               = var.monitoring_key_name
+  subnet_id              = aws_subnet.public[0].id
+  vpc_security_group_ids = [aws_security_group.monitoring.id]
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = var.monitoring_volume_size
+    encrypted             = true
+    delete_on_termination = true
+  }
+
+  metadata_options {
+    http_tokens   = "required"
+    http_endpoint = "enabled"
+  }
+
+  tags = { Name = "${local.name_prefix}-monitoring" }
+}
+
+resource "aws_eip" "monitoring" {
+  domain = "vpc"
+  tags   = { Name = "${local.name_prefix}-monitoring-eip" }
+}
+
+resource "aws_eip_association" "monitoring" {
+  instance_id   = aws_instance.monitoring.id
+  allocation_id = aws_eip.monitoring.id
 }

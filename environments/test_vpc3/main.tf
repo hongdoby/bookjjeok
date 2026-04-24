@@ -1,5 +1,6 @@
 module "vpc3_shared" {
-  source = "../../modules/vpc3_shared"
+  source       = "../../modules/vpc3_shared"
+
 
   db_instance_class    = "db.t4g.micro"
   vpc3_cidr            = "10.2.0.0/16"
@@ -10,5 +11,5 @@ module "vpc3_shared" {
   vpc1_id              = "vpc-00000000000000000"
   bastion_key_name     = "book-exchange-bastion-key"
   db_password          = ""               # 직접 입력
-  tailscale_auth_key   = ""               # 직접 입력
+  monitoring_key_name  = "book-exchange-bastion-key"
 }

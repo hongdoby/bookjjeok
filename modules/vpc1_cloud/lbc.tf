@@ -11,7 +11,7 @@ module "load_balancer_controller_irsa_role" {
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
-    ex = {
+    main = {
       provider_arn               = module.eks.oidc_provider_arn
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
@@ -24,26 +24,28 @@ resource "helm_release" "aws_load_balancer_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
-  version    = "1.6.2" # 현재 호환되는 적절한 버전 명시
+  version    = "1.8.1" # 최신 안정 버전으로 업데이트
 
-  set = [
-    {
-      name  = "clusterName"
-      value = module.eks.cluster_name
-    },
-    {
-      name  = "serviceAccount.create"
-      value = "true"
-    },
-    {
-      name  = "serviceAccount.name"
-      value = "aws-load-balancer-controller"
-    },
-    {
-      name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-      value = module.load_balancer_controller_irsa_role.iam_role_arn
-    }
-  ]
+  set {
+    name  = "clusterName"
+    value = module.eks.cluster_name
+  }
 
+  set {
+    name  = "serviceAccount.create"
+    value = "true"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = "aws-load-balancer-controller"
+  }
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = module.load_balancer_controller_irsa_role.iam_role_arn
+  }
+
+  # EKS 클러스터가 생성된 후에 설치되어야 함
   depends_on = [module.eks]
 }

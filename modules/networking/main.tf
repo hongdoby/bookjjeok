@@ -11,13 +11,24 @@ resource "aws_vpc_peering_connection" "vpc1_to_vpc3" {
   vpc_id        = var.vpc1_id
   peer_vpc_id   = var.vpc3_id
   peer_owner_id = local.peer_owner_id
-  peer_region   = var.aws_region
 
   auto_accept = true
 
   tags = {
     Name = "${var.prefix}-vpc1-to-vpc3"
     Side = "both"
+  }
+}
+
+resource "aws_vpc_peering_connection_options" "vpc1_to_vpc3" {
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc3.id
+
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  requester {
+    allow_remote_vpc_dns_resolution = true
   }
 }
 
@@ -76,4 +87,72 @@ resource "aws_vpc_security_group_ingress_rule" "redis_from_vpc1" {
   to_port           = 6379
   ip_protocol       = "tcp"
   cidr_ipv4         = var.vpc1_cidr
+}
+
+# 테스트용: VPC1 -> VPC3 Bastion (22포트) 허용
+resource "aws_vpc_security_group_ingress_rule" "bastion_from_vpc1" {
+  security_group_id = var.vpc3_sg_bastion_id
+  description       = "SSH from VPC1 for testing"
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  cidr_ipv4         = var.vpc1_cidr
+}
+
+#========================================
+# VPC Peering Connection (VPC1 <-> VPC2)
+#========================================
+resource "aws_vpc_peering_connection" "vpc1_to_vpc2" {
+  vpc_id        = var.vpc1_id
+  peer_vpc_id   = var.vpc2_id
+  peer_owner_id = local.peer_owner_id
+
+  auto_accept = true
+
+  tags = {
+    Name = "${var.prefix}-vpc1-to-vpc2"
+    Side = "both"
+  }
+}
+
+resource "aws_vpc_peering_connection_options" "vpc1_to_vpc2" {
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  requester {
+    allow_remote_vpc_dns_resolution = true
+  }
+}
+
+#========================================
+# Route Table Entries - VPC1 -> VPC2
+#========================================
+resource "aws_route" "vpc1_public_to_vpc2" {
+  route_table_id            = var.vpc1_public_route_table_id
+  destination_cidr_block    = var.vpc2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+resource "aws_route" "vpc1_private_to_vpc2" {
+  route_table_id            = var.vpc1_private_route_table_id
+  destination_cidr_block    = var.vpc2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+#========================================
+# Route Table Entries - VPC2 -> VPC1
+#========================================
+resource "aws_route" "vpc2_public_to_vpc1" {
+  route_table_id            = var.vpc2_public_route_table_id
+  destination_cidr_block    = var.vpc1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+resource "aws_route" "vpc2_private_to_vpc1" {
+  route_table_id            = var.vpc2_private_route_table_id
+  destination_cidr_block    = var.vpc1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
 }

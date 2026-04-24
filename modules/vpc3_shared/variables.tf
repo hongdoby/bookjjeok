@@ -96,15 +96,7 @@ variable "allowed_ssh_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
-########################################
-# Tailscale
-########################################
 
-variable "tailscale_auth_key" {
-  description = "Tailscale Auth Key (Bastion 등록용)"
-  type        = string
-  sensitive   = true
-}
 
 ########################################
 # RDS
@@ -155,4 +147,25 @@ variable "redis_num_replicas" {
   description = "Redis 복제본 수 (primary 제외)"
   type        = number
   default     = 1
+}
+
+########################################
+# Monitoring EC2 (Prometheus + Grafana)
+########################################
+
+variable "monitoring_instance_type" {
+  description = "Monitoring EC2 인스턴스 타입"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "monitoring_volume_size" {
+  description = "Monitoring EC2 EBS 볼륨 크기 (GB)"
+  type        = number
+  default     = 30
+}
+
+variable "monitoring_key_name" {
+  description = "Monitoring EC2 SSH 키페어 이름"
+  type        = string
 }
