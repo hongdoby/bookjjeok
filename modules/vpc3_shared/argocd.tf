@@ -79,31 +79,30 @@ until /usr/local/bin/kubectl get nodes; do sleep 2; done
 /usr/local/bin/kubectl create namespace argocd
 /usr/local/bin/kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-# 5. ArgoCD Ingress 구성 (Traefik 연동)
-# SSL은 Traefik이 처리하므로 ArgoCD 서버 자체는 --insecure 모드로 동작하도록 패치
-/usr/local/bin/kubectl patch deployment argocd-server -n argocd --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/command/-", "value": "--insecure"}]'
+# 5. ArgoCD 서버 설정 고도화
+# - SSL 리다이렉트 해제 (--insecure) 및 경로 기반 접속 설정 (--rootpath)
+/usr/local/bin/kubectl patch deployment argocd-server -n argocd --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--insecure"}, {"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--rootpath"}, {"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "/argocd"}]'
 
-cat <<'INGRESS' > /tmp/argocd-ingress.yaml
+cat <<INGRESS_YAML | /usr/local/bin/kubectl apply -f -
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: argocd-server-ingress
   namespace: argocd
   annotations:
-    ingress.kubernetes.io/ssl-redirect: "false"
+    kubernetes.io/ingress.class: "traefik"
 spec:
   rules:
   - http:
       paths:
-      - path: /
+      - path: /argocd
         pathType: Prefix
         backend:
           service:
             name: argocd-server
             port:
               name: http
-INGRESS
-/usr/local/bin/kubectl apply -f /tmp/argocd-ingress.yaml
+INGRESS_YAML
 
 # 6. ec2-user가 kubectl을 바로 사용할 수 있도록 설정
 mkdir -p /home/ec2-user/.kube
@@ -125,4 +124,42 @@ output "argocd_private_ip" {
 output "argocd_internal_url" {
   description = "ArgoCD 내부 접속 URL (HTTP/HTTPS)"
   value       = "http://${aws_instance.argocd.private_ip}"
+}
+
+# ==========================================
+# ArgoCD ALB 설정 (Public Access)
+# ==========================================
+
+resource "aws_lb_target_group" "argocd" {
+  name        = "${local.name_prefix}-argocd-tg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.vpc3.id
+  target_type = "instance"
+
+  health_check {
+    path                = "/healthz"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    matcher             = "200-399"
+  }
+
+  tags = { Name = "${local.name_prefix}-argocd-tg" }
+}
+
+resource "aws_lb_target_group_attachment" "argocd" {
+  target_group_arn = aws_lb_target_group.argocd.arn
+  target_id        = aws_instance.argocd.id
+  port             = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "argocd_from_alb" {
+  security_group_id            = aws_security_group.argocd.id
+  description                  = "Allow HTTP from ALB"
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.alb.id
 }

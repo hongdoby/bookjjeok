@@ -454,6 +454,22 @@ resource "aws_lb_listener" "http" {
   tags = { Name = "${local.name_prefix}-vpc3-http-listener" }
 }
 
+resource "aws_lb_listener_rule" "argocd" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.argocd.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/argocd*"]
+    }
+  }
+}
+
 ########################################
 # ⑦ RDS — 서브넷 그룹
 ########################################
