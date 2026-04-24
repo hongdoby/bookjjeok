@@ -41,6 +41,21 @@ module "eks" {
     }
   }
 
+  # ArgoCD 인스턴스 Role을 클러스터 관리자로 등록 (Access Entry)
+  access_entries = var.argocd_role_arn != "" ? {
+    argocd_role = {
+      principal_arn = var.argocd_role_arn
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  } : {}
+
   tags = {
     Environment = "prod-cloud"
   }

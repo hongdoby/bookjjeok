@@ -49,12 +49,62 @@ resource "aws_security_group" "argocd" {
   }
 }
 
+# ArgoCD 전용 IAM Role
+resource "aws_iam_role" "argocd" {
+  name = "${local.name_prefix}-argocd-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name_prefix}-argocd-role"
+  }
+}
+
+# EKS 클러스터 관리 권한 (Inline Policy)
+resource "aws_iam_role_policy" "argocd_eks" {
+  name = "${local.name_prefix}-argocd-eks-policy"
+  role = aws_iam_role.argocd.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "eks:*",
+          "iam:PassRole",
+          "sts:AssumeRole"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# EC2 인스턴스 프로파일
+resource "aws_iam_instance_profile" "argocd" {
+  name = "${local.name_prefix}-argocd-instance-profile"
+  role = aws_iam_role.argocd.name
+}
+
 resource "aws_instance" "argocd" {
   ami                    = data.aws_ami.al2023.id
   instance_type          = var.argocd_instance_type
   key_name               = var.bastion_key_name
-  subnet_id              = aws_subnet.private[0].id # 퍼블릭이 아닌 프라이빗 서브넷 배치
+  subnet_id              = aws_subnet.private[0].id
   vpc_security_group_ids = [aws_security_group.argocd.id]
+  iam_instance_profile   = aws_iam_instance_profile.argocd.name
 
   root_block_device {
     volume_size = 30
