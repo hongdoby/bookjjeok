@@ -11,4 +11,5 @@ module "vpc3_shared" {
   vpc1_id              = "vpc-00000000000000000"
   bastion_key_name     = "book-exchange-bastion-key"
   db_password          = ""               # 직접 입력
+  monitoring_key_name  = "book-exchange-bastion-key"
 }
