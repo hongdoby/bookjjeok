@@ -102,9 +102,9 @@ resource "aws_iam_instance_profile" "k8s_node_profile" {
   role = aws_iam_role.k8s_node_role.name
 }
 
-# ─── NAT Instance SG ───────────────────────────────
-resource "aws_security_group" "nat_sg" {
-  name   = "bookjjeok-cloud-nat-sg"
+# ─── Bastion SG ────────────────────────────────────
+resource "aws_security_group" "bastion_sg" {
+  name   = "bookjjeok-cloud-bastion-sg"
   vpc_id = aws_vpc.vpc2.id
 
   ingress {
@@ -114,12 +114,50 @@ resource "aws_security_group" "nat_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "bookjjeok-cloud-bastion-sg" }
+}
+
+# ─── Bastion Instance ──────────────────────────────
+resource "aws_instance" "bastion" {
+  ami                    = var.nat_instance_ami
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_2a.id
+  key_name               = var.key_name
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 8
+  }
+
+  tags = { Name = "bookjjeok-cloud-bastion" }
+}
+
+# ─── NAT Instance SG ───────────────────────────────
+resource "aws_security_group" "nat_sg" {
+  name   = "bookjjeok-cloud-nat-sg"
+  vpc_id = aws_vpc.vpc2.id
+
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  ingress {
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
 
   ingress {
     from_port   = 443
@@ -133,13 +171,6 @@ resource "aws_security_group" "nat_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc_cidr]
-  }
-
-  ingress {
-    from_port   = -1
-    to_port     = -1
-    protocol    = "icmp"
-    cidr_blocks = [var.vpc3_cidr]
   }
 
   egress {
@@ -213,15 +244,6 @@ resource "aws_route_table_association" "pub_2c" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# ─── VPC Peering (vpc2 ↔ vpc3) ─────────────────────
-resource "aws_vpc_peering_connection" "vpc2_to_vpc3" {
-  vpc_id      = aws_vpc.vpc2.id
-  peer_vpc_id = var.vpc3_vpc_id
-  auto_accept = true
-
-  tags = { Name = "bookjjeok-cloud-pcx-vpc2-vpc3" }
-}
-
 # ─── 라우팅 테이블: 프라이빗 ──────────────────────────
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.vpc2.id
@@ -229,11 +251,6 @@ resource "aws_route_table" "private_rt" {
   route {
     cidr_block           = "0.0.0.0/0"
     network_interface_id = aws_instance.nat_instance.primary_network_interface_id
-  }
-
-  route {
-    cidr_block                = var.vpc3_cidr
-    vpc_peering_connection_id = aws_vpc_peering_connection.vpc2_to_vpc3.id
   }
 
   tags = { Name = "bookjjeok-cloud-private-rt" }
@@ -271,6 +288,13 @@ resource "aws_security_group" "k8s_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = [var.vpc3_cidr]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.vpc1_cidr]
   }
 
   ingress {

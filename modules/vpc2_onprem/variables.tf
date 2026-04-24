@@ -20,8 +20,8 @@ variable "nat_instance_type" {
 
 variable "key_name" {}
 
-variable "vpc3_vpc_id" {
-  default = "vpc-0c7d25517da97032e"
+variable "vpc1_cidr" {
+  default = "10.0.0.0/16"
 }
 
 variable "vpc3_cidr" {
