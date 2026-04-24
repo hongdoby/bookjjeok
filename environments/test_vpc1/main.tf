@@ -37,6 +37,14 @@ data "aws_security_group" "redis" {
   }
 }
 
+data "aws_security_group" "bastion" {
+  vpc_id = data.aws_vpc.vpc3.id
+  filter {
+    name   = "tag:Name"
+    values = ["book-exchange-prod-bastion-sg"]
+  }
+}
+
 module "vpc1_cloud" {
   source = "../../modules/vpc1_cloud"
 
@@ -63,4 +71,5 @@ module "networking" {
   vpc3_private_route_table_ids = data.aws_route_tables.vpc3_private.ids
   vpc3_sg_rds_proxy_id         = data.aws_security_group.rds_proxy.id
   vpc3_sg_redis_id             = data.aws_security_group.redis.id
+  vpc3_sg_bastion_id           = data.aws_security_group.bastion.id
 }
