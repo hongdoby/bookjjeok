@@ -64,6 +64,13 @@ module "networking" {
   vpc1_public_route_table_id  = module.vpc1_cloud.public_route_table_id
   vpc1_private_route_table_id = module.vpc1_cloud.private_route_table_id
 
+  # VPC2 Info
+  vpc2_id                     = "vpc-01c4ed0ec60ea5f0d"
+  vpc2_cidr                   = "10.1.0.0/16"
+  vpc2_public_route_table_id  = "rtb-0b53d173e1ea87670"
+  vpc2_private_route_table_id = "rtb-01f1e3d09adaf670e"
+
+
   # VPC3 Info (via Data Sources)
   vpc3_id                      = data.aws_vpc.vpc3.id
   vpc3_cidr                    = data.aws_vpc.vpc3.cidr_block

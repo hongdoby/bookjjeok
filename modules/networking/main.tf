@@ -98,3 +98,61 @@ resource "aws_vpc_security_group_ingress_rule" "bastion_from_vpc1" {
   ip_protocol       = "tcp"
   cidr_ipv4         = var.vpc1_cidr
 }
+
+#========================================
+# VPC Peering Connection (VPC1 <-> VPC2)
+#========================================
+resource "aws_vpc_peering_connection" "vpc1_to_vpc2" {
+  vpc_id        = var.vpc1_id
+  peer_vpc_id   = var.vpc2_id
+  peer_owner_id = local.peer_owner_id
+
+  auto_accept = true
+
+  tags = {
+    Name = "${var.prefix}-vpc1-to-vpc2"
+    Side = "both"
+  }
+}
+
+resource "aws_vpc_peering_connection_options" "vpc1_to_vpc2" {
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  requester {
+    allow_remote_vpc_dns_resolution = true
+  }
+}
+
+#========================================
+# Route Table Entries - VPC1 -> VPC2
+#========================================
+resource "aws_route" "vpc1_public_to_vpc2" {
+  route_table_id            = var.vpc1_public_route_table_id
+  destination_cidr_block    = var.vpc2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+resource "aws_route" "vpc1_private_to_vpc2" {
+  route_table_id            = var.vpc1_private_route_table_id
+  destination_cidr_block    = var.vpc2_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+#========================================
+# Route Table Entries - VPC2 -> VPC1
+#========================================
+resource "aws_route" "vpc2_public_to_vpc1" {
+  route_table_id            = var.vpc2_public_route_table_id
+  destination_cidr_block    = var.vpc1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
+
+resource "aws_route" "vpc2_private_to_vpc1" {
+  route_table_id            = var.vpc2_private_route_table_id
+  destination_cidr_block    = var.vpc1_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
+}
