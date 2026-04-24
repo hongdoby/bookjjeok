@@ -1,7 +1,7 @@
 data "aws_vpc" "vpc3" {
   filter {
     name   = "tag:Name"
-    values = ["bookjjeok-cloud-vpc3"]
+    values = ["book-exchange-prod-vpc3"]
   }
 }
 
