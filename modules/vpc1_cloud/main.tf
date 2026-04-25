@@ -48,6 +48,7 @@ resource "aws_subnet" "private_a" {
   tags = {
     Name                              = "${var.prefix}-private-a"
     "kubernetes.io/role/internal-elb" = "1" # EKS 내부 로드밸런서 태그
+    "karpenter.sh/discovery"          = var.cluster_name
   }
 }
 
@@ -59,6 +60,7 @@ resource "aws_subnet" "private_b" {
   tags = {
     Name                              = "${var.prefix}-private-b"
     "kubernetes.io/role/internal-elb" = "1"
+    "karpenter.sh/discovery"          = var.cluster_name
   }
 }
 
