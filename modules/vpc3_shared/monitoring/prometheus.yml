@@ -6,6 +6,12 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
+  - job_name: 'vpc1-nodes'
+    static_configs:
+      - targets:
+        - '10.0.10.176:9100'
+        - '10.0.12.195:9100'
+
   - job_name: 'vpc2-nodes'
     static_configs:
       - targets:
