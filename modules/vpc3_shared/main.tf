@@ -732,20 +732,7 @@ resource "aws_elasticache_replication_group" "main" {
 # }
 
 ########################################
-# VPC2 Peering 라우트
-########################################
-
-resource "aws_route" "public_to_vpc2" {
-  route_table_id            = aws_route_table.public.id
-  destination_cidr_block    = "10.1.0.0/16"
-  vpc_peering_connection_id = "pcx-002f6a13e30b25a62"
-}
-
-resource "aws_route" "private_to_vpc2" {
-  route_table_id            = aws_route_table.private[0].id
-  destination_cidr_block    = "10.1.0.0/16"
-  vpc_peering_connection_id = "pcx-002f6a13e30b25a62"
-}
+# VPC2 Peering 라우트 (삭제됨: test_vpc1의 networking 모듈에서 통합 관리함)
 
 ########################################
 # SECURITY GROUP — Monitoring

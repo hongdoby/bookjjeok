@@ -83,7 +83,8 @@ resource "aws_iam_role_policy" "argocd_eks" {
         Action = [
           "eks:*",
           "iam:PassRole",
-          "sts:AssumeRole"
+          "sts:AssumeRole",
+          "ec2:DescribeInstances"
         ]
         Effect   = "Allow"
         Resource = "*"
