@@ -38,3 +38,13 @@ scrape_configs:
     static_configs:
       - targets:
         - '10.1.25.44:30090'
+
+  - job_name: 'vpc1-kube-state-metrics'
+    static_configs:
+      - targets:
+        - '10.0.10.176:30080'
+
+  - job_name: 'vpc2-kube-state-metrics'
+    static_configs:
+      - targets:
+        - '10.1.25.44:30080'
