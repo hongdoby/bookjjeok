@@ -18,3 +18,23 @@ scrape_configs:
         - '10.1.16.15:9100'
         - '10.1.23.243:9100'
         - '10.1.25.44:9100'
+
+  - job_name: 'vpc1-prometheus-federation'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job!=""}'
+    static_configs:
+      - targets:
+        - '10.0.10.176:30090'
+
+  - job_name: 'vpc2-prometheus-federation'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job!=""}'
+    static_configs:
+      - targets:
+        - '10.1.25.44:30090'
