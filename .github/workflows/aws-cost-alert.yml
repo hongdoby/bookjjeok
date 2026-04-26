@@ -1,0 +1,142 @@
+name: AWS Cost Daily Alert
+
+on:
+  schedule:
+    # 매일 10:30 KST = 01:30 UTC
+    - cron: '30 1 * * *'
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  send-cost-alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get AWS Cost and Send to Slack
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1  # Cost Explorer는 항상 us-east-1
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          pip install boto3 requests --quiet
+
+          python3 << 'EOF'
+          import boto3
+          import requests
+          import os
+          from datetime import datetime, timedelta, timezone
+
+          ce = boto3.client('ce', region_name='us-east-1')
+
+          # KST 기준 현재 시각
+          kst_now = datetime.now(timezone.utc) + timedelta(hours=9)
+          today = kst_now.date()
+          first_of_month = today.replace(day=1)
+          tomorrow = today + timedelta(days=1)
+
+          # ── 1. 이번 달 누적 (MONTHLY, 서비스별)
+          monthly_response = ce.get_cost_and_usage(
+              TimePeriod={
+                  'Start': str(first_of_month),
+                  'End': str(tomorrow)
+              },
+              Granularity='MONTHLY',
+              Metrics=['UnblendedCost'],
+              GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
+          )
+
+          results = monthly_response['ResultsByTime'][0]
+          total = float(results['Total']['UnblendedCost']['Amount'])
+          currency = results['Total']['UnblendedCost']['Unit']
+
+          services = []
+          for group in sorted(results['Groups'],
+                              key=lambda x: float(x['Metrics']['UnblendedCost']['Amount']),
+                              reverse=True):
+              amount = float(group['Metrics']['UnblendedCost']['Amount'])
+              if amount >= 0.01:
+                  services.append({'name': group['Keys'][0], 'amount': amount})
+
+          # ── 2. 오늘 하루 시간별 누적 (HOURLY → 최대한 실시간)
+          hourly_response = ce.get_cost_and_usage(
+              TimePeriod={
+                  'Start': str(today),
+                  'End': str(tomorrow)
+              },
+              Granularity='HOURLY',
+              Metrics=['UnblendedCost']
+          )
+
+          today_total = sum(
+              float(r['Total']['UnblendedCost']['Amount'])
+              for r in hourly_response['ResultsByTime']
+          )
+
+          # 데이터가 반영된 마지막 시각 추출
+          last_period = hourly_response['ResultsByTime'][-1]['TimePeriod']['End']
+          last_dt = datetime.fromisoformat(last_period.replace('Z', '+00:00')) + timedelta(hours=9)
+          last_str = last_dt.strftime('%m/%d %H:%M KST')
+
+          # ── 3. Slack 메시지 구성
+          service_lines = '\n'.join([
+              f"  • {s['name']}: ${s['amount']:,.2f}"
+              for s in services[:8]
+          ])
+          if len(services) > 8:
+              others = sum(s['amount'] for s in services[8:])
+              service_lines += f"\n  • 기타: ${others:,.2f}"
+
+          message = {
+              "blocks": [
+                  {
+                      "type": "header",
+                      "text": {
+                          "type": "plain_text",
+                          "text": f"☁️ AWS 비용 현황 ({today.strftime('%Y년 %m월 %d일')} 10:30 회의용)"
+                      }
+                  },
+                  {
+                      "type": "section",
+                      "fields": [
+                          {
+                              "type": "mrkdwn",
+                              "text": f"*📅 이번 달 누적*\n`${total:,.2f} {currency}`"
+                          },
+                          {
+                              "type": "mrkdwn",
+                              "text": f"*🕐 오늘 발생 비용*\n`${today_total:,.2f} {currency}`"
+                          }
+                      ]
+                  },
+                  {
+                      "type": "section",
+                      "text": {
+                          "type": "mrkdwn",
+                          "text": f"*서비스별 누적 비용 (이번 달)*\n{service_lines}"
+                      }
+                  },
+                  {
+                      "type": "context",
+                      "elements": [
+                          {
+                              "type": "mrkdwn",
+                              "text": f"🕒 마지막 반영: {last_str} | Cost Explorer HOURLY 기준 (3~8시간 지연 있음)"
+                          }
+                      ]
+                  }
+              ]
+          }
+
+          res = requests.post(
+              os.environ['SLACK_WEBHOOK_URL'],
+              json=message,
+              headers={'Content-Type': 'application/json'}
+          )
+
+          if res.status_code == 200:
+              print(f"✅ Slack 전송 성공 | 이번 달 누적: ${total:,.2f} | 오늘: ${today_total:,.2f}")
+          else:
+              print(f"❌ Slack 전송 실패: {res.status_code} {res.text}")
+              exit(1)
+
+          EOF
