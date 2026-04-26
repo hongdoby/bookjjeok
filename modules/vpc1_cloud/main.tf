@@ -7,7 +7,7 @@ resource "aws_vpc" "this" {
   enable_dns_support   = true
 
   tags = {
-    Name = "${var.prefix}-main"
+    Name = var.prefix
   }
 }
 
