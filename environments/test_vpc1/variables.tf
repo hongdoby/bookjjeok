@@ -7,11 +7,11 @@ variable "vpc1_cidr" {
 variable "vpc1_prefix" {
   description = "VPC1 리소스에 사용할 접두사"
   type        = string
-  default     = "bookjjeok-test-vpc1"
+  default     = "bookjjeok-cloud-vpc1"
 }
 
 variable "vpc1_cluster_name" {
   description = "VPC1에 배포될 EKS 클러스터 이름"
   type        = string
-  default     = "bookjjeok-test-eks-cluster"
+  default     = "bookjjeok-cloud-eks-cluster"
 }
