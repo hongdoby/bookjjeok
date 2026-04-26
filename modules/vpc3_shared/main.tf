@@ -159,10 +159,10 @@ resource "aws_route" "private_nat" {
 }
 
 resource "aws_route_table_association" "private" {
-  count = 1
+  count = 2
 
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[0].id
 }
 
 ########################################
@@ -275,6 +275,24 @@ resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_bastion" {
   to_port                      = 5432
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_vpc3" {
+  security_group_id            = aws_security_group.rds_proxy.id
+  description                  = "PostgreSQL from local VPC3"
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  cidr_ipv4                    = var.vpc3_cidr
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_argocd" {
+  security_group_id            = aws_security_group.rds_proxy.id
+  description                  = "PostgreSQL from ArgoCD"
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = "sg-0952d3afe688c1028" # book-exchange-prod-argocd-sg
 }
 
 resource "aws_vpc_security_group_egress_rule" "rds_proxy_all" {
@@ -563,7 +581,7 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
     username = var.db_username
     password = var.db_password
     engine   = "postgres"
-    host     = aws_db_instance.main.address
+    host     = aws_db_proxy.main.endpoint
     port     = 5432
     dbname   = var.db_name
   })
