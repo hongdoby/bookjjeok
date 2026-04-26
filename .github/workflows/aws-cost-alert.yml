@@ -33,11 +33,11 @@ jobs:
           first_of_month = today.replace(day=1)
           tomorrow = today + timedelta(days=1)
 
-          # ── 1. 이번 달 누적 (MONTHLY, 서비스별)
+          # ── 1. 이번 달 누적 (MONTHLY, 서비스별) - 날짜 형식: yyyy-MM-dd
           monthly_response = ce.get_cost_and_usage(
               TimePeriod={
                   'Start': str(first_of_month),
-                  'End': str(today)   # End는 오늘(미포함)까지만
+                  'End': str(today)
               },
               Granularity='MONTHLY',
               Metrics=['UnblendedCost'],
@@ -61,11 +61,14 @@ jobs:
               if amount >= 0.01:
                   services.append({'name': group['Keys'][0], 'amount': amount})
 
-          # ── 2. 오늘 하루 시간별 누적 (HOURLY)
+          # ── 2. 오늘 하루 시간별 누적 (HOURLY) - 형식: yyyy-MM-ddThh:mm:ssZ
+          today_start = f"{today}T00:00:00Z"
+          today_end = f"{tomorrow}T00:00:00Z"
+
           hourly_response = ce.get_cost_and_usage(
               TimePeriod={
-                  'Start': str(today),
-                  'End': str(tomorrow)
+                  'Start': today_start,
+                  'End': today_end
               },
               Granularity='HOURLY',
               Metrics=['UnblendedCost']
@@ -73,7 +76,7 @@ jobs:
 
           hourly_results = [
               r for r in hourly_response['ResultsByTime']
-              if r.get('Total', {}).get('UnblendedCost', {}).get('Amount')
+              if float(r.get('Total', {}).get('UnblendedCost', {}).get('Amount', 0)) > 0
           ]
 
           today_total = sum(
