@@ -292,7 +292,7 @@ resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_argocd" {
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"
-  referenced_security_group_id = "sg-0952d3afe688c1028" # book-exchange-prod-argocd-sg
+  referenced_security_group_id = aws_security_group.argocd.id
 }
 
 resource "aws_vpc_security_group_egress_rule" "rds_proxy_all" {
@@ -474,7 +474,7 @@ resource "aws_lb_listener" "http" {
 
 resource "aws_lb_listener_rule" "argocd" {
   listener_arn = aws_lb_listener.http.arn
-  priority     = 1
+  priority     = 10
 
   action {
     type             = "forward"
@@ -484,6 +484,47 @@ resource "aws_lb_listener_rule" "argocd" {
   condition {
     path_pattern {
       values = ["/argocd*"]
+    }
+  }
+}
+
+resource "aws_lb_target_group" "grafana" {
+  name        = "${local.name_prefix}-grafana-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.vpc3.id
+  target_type = "instance"
+
+  health_check {
+    path                = "/api/health"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    matcher             = "200"
+  }
+
+  tags = { Name = "${local.name_prefix}-grafana-tg" }
+}
+
+resource "aws_lb_target_group_attachment" "grafana" {
+  target_group_arn = aws_lb_target_group.grafana.arn
+  target_id        = aws_instance.monitoring.id
+  port             = 3000
+}
+
+resource "aws_lb_listener_rule" "grafana" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 20
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.grafana.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana*"]
     }
   }
 }
@@ -569,22 +610,23 @@ resource "aws_db_instance" "main" {
 ########################################
 
 resource "aws_secretsmanager_secret" "db_credentials" {
-  name = "${local.name_prefix}-vpc3-db-credentials"
+  name = "${local.name_prefix}-vpc3-db-creds"
+  recovery_window_in_days = 0
 
-  tags = { Name = "${local.name_prefix}-vpc3-db-credentials" }
+  tags = { Name = "${local.name_prefix}-vpc3-db-creds" }
 }
 
 resource "aws_secretsmanager_secret_version" "db_credentials" {
   secret_id = aws_secretsmanager_secret.db_credentials.id
 
-  secret_string = jsonencode({
+  secret_string = nonsensitive(jsonencode({
     username = var.db_username
     password = var.db_password
     engine   = "postgres"
     host     = aws_db_proxy.main.endpoint
     port     = 5432
     dbname   = var.db_name
-  })
+  }))
 }
 
 ########################################
@@ -776,6 +818,15 @@ resource "aws_vpc_security_group_ingress_rule" "monitoring_grafana" {
   referenced_security_group_id = aws_security_group.bastion.id
 }
 
+resource "aws_vpc_security_group_ingress_rule" "monitoring_grafana_from_alb" {
+  security_group_id            = aws_security_group.monitoring.id
+  description                  = "Grafana from ALB"
+  from_port                    = 3000
+  to_port                      = 3000
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.alb.id
+}
+
 # Prometheus (9090)
 resource "aws_vpc_security_group_ingress_rule" "monitoring_prometheus" {
   security_group_id = aws_security_group.monitoring.id
@@ -829,6 +880,37 @@ resource "aws_instance" "monitoring" {
     encrypted             = true
     delete_on_termination = true
   }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    set -ex
+    
+    # Docker 설치
+    dnf update -y
+    dnf install -y docker
+    systemctl enable --now docker
+    
+    # Docker-Compose 설치
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    
+    # 디렉토리 생성
+    mkdir -p /home/ec2-user/monitoring
+    
+    # 설정 파일 작성
+    cat <<'DOCKER_COMPOSE' > /home/ec2-user/monitoring/docker-compose.yml
+    ${file("${path.module}/monitoring/docker-compose.yml")}
+    DOCKER_COMPOSE
+    
+    cat <<'PROMETHEUS_YML' > /home/ec2-user/monitoring/prometheus.yml
+    ${file("${path.module}/monitoring/prometheus.yml")}
+    PROMETHEUS_YML
+    
+    # 소유권 변경 및 실행
+    chown -R ec2-user:ec2-user /home/ec2-user/monitoring
+    cd /home/ec2-user/monitoring
+    /usr/local/bin/docker-compose up -d
+  EOF
 
   metadata_options {
     http_tokens   = "required"
