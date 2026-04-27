@@ -59,17 +59,72 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
 # Outputs
 # ==========================================
 
-output "frontend_bucket_id" {
-  description = "프론트엔드 S3 버킷 ID"
-  value       = aws_s3_bucket.frontend.id
-}
-
-output "frontend_bucket_arn" {
-  description = "프론트엔드 S3 버킷 ARN"
-  value       = aws_s3_bucket.frontend.arn
-}
-
 output "frontend_bucket_regional_domain_name" {
   description = "프론트엔드 S3 버킷 리전 도메인 (CloudFront Origin 설정용)"
   value       = aws_s3_bucket.frontend.bucket_regional_domain_name
+}
+
+# ==========================================
+# 중앙 로그 저장용 S3 버킷 설정 (Fluent Bit 전용)
+# ==========================================
+
+resource "aws_s3_bucket" "logs" {
+  bucket = var.log_bucket_name
+
+  tags = {
+    Name        = var.log_bucket_name
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# 1. 버킷 버전 관리
+resource "aws_s3_bucket_versioning" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# 2. 기본 암호화 설정
+resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# 3. 퍼블릭 액세스 차단
+resource "aws_s3_bucket_public_access_block" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# 4. 생명주기 관리 (90일 후 삭제)
+resource "aws_s3_bucket_lifecycle_configuration" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  rule {
+    id     = "log-expiration"
+    status = "Enabled"
+
+    expiration {
+      days = 90
+    }
+  }
+}
+
+output "log_bucket_id" {
+  value = aws_s3_bucket.logs.id
+}
+
+output "log_bucket_arn" {
+  value = aws_s3_bucket.logs.arn
 }

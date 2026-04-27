@@ -21,3 +21,9 @@ variable "domain_name" {
   type        = string
   default     = "bookjjeok.cloud"
 }
+
+variable "log_bucket_name" {
+  description = "중앙 로그 저장용 S3 버킷 이름"
+  type        = string
+  default     = "bookjjeok-cloud-logs-s3"
+}

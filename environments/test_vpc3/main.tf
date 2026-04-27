@@ -1,6 +1,9 @@
 module "vpc3_shared" {
   source       = "../../modules/vpc3_shared"
 
+  project_name         = var.project_name
+  environment          = var.environment
+
 
   db_instance_class    = "db.t4g.micro"
   vpc3_cidr            = "10.2.0.0/16"
@@ -10,6 +13,6 @@ module "vpc3_shared" {
   vpc1_cidr            = "10.0.0.0/16"
   vpc1_id              = "vpc-00000000000000000"
   bastion_key_name     = "book-exchange-bastion-key"
-  db_password          = ""               # 직접 입력
+  db_password          = var.db_password
   monitoring_key_name  = "book-exchange-bastion-key"
 }
