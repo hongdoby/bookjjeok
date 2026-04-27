@@ -1,8 +1,3 @@
-output "bastion_public_ips" {
-  description = "Bastion 퍼블릭 IP"
-  value       = module.vpc3_shared.bastion_public_ips
-}
-
 output "alb_dns_name" {
   description = "ALB DNS"
   value       = module.vpc3_shared.alb_dns_name
