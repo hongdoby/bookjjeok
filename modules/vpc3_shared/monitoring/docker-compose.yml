@@ -15,4 +15,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SERVER_DOMAIN=bookjjeok-cloud-vpc3-alb-570474290.ap-northeast-2.elb.amazonaws.com
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     restart: always

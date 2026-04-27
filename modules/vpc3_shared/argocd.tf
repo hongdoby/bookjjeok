@@ -189,7 +189,7 @@ resource "aws_lb_target_group" "argocd" {
   target_type = "instance"
 
   health_check {
-    path                = "/healthz"
+    path                = "/argocd/healthz"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
