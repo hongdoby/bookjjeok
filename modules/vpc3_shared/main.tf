@@ -258,16 +258,6 @@ resource "aws_security_group" "rds_proxy" {
   lifecycle { create_before_destroy = true }
 }
 
-# VPC1 올라오면 주석 해제
-# resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_vpc1" {
-#   security_group_id = aws_security_group.rds_proxy.id
-#   description       = "PostgreSQL from VPC1 backend pods"
-#   from_port         = 5432
-#   to_port           = 5432
-#   ip_protocol       = "tcp"
-#   cidr_ipv4         = var.vpc1_cidr
-# }
-
 resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_bastion" {
   security_group_id            = aws_security_group.rds_proxy.id
   description                  = "PostgreSQL from Bastion"
@@ -407,19 +397,6 @@ resource "aws_instance" "bastion" {
   tags = { Name = "${local.name_prefix}-bastion-${local.az_short[count.index]}" }
 }
 
-resource "aws_eip" "bastion" {
-  count  = 1
-  domain = "vpc"
-
-  tags = { Name = "${local.name_prefix}-bastion-eip-${local.az_short[count.index]}" }
-}
-
-resource "aws_eip_association" "bastion" {
-  count = 1
-
-  instance_id   = aws_instance.bastion[count.index].id
-  allocation_id = aws_eip.bastion[count.index].id
-}
 
 ########################################
 # ⑥ ALB (퍼블릭 서브넷 1개)
