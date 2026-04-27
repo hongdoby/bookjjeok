@@ -838,12 +838,3 @@ resource "aws_instance" "monitoring" {
   tags = { Name = "${local.name_prefix}-monitoring" }
 }
 
-resource "aws_eip" "monitoring" {
-  domain = "vpc"
-  tags   = { Name = "${local.name_prefix}-monitoring-eip" }
-}
-
-resource "aws_eip_association" "monitoring" {
-  instance_id   = aws_instance.monitoring.id
-  allocation_id = aws_eip.monitoring.id
-}
