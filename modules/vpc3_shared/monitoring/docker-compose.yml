@@ -6,6 +6,9 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+      - /home/ec2-user/.kube/token:/etc/prometheus/token
+      - /home/ec2-user/monitoring/vpc2-token:/etc/prometheus/vpc2-token
     restart: always
   grafana:
     image: grafana/grafana
@@ -19,4 +22,21 @@ services:
       - GF_SERVER_DOMAIN=bookjjeok-cloud-vpc3-alb-570474290.ap-northeast-2.elb.amazonaws.com
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
     restart: always
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./tempo-data:/var/tempo
+    restart: always
+volumes:
+  prometheus_data:
+  grafana_data:
