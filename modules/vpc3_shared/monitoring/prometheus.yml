@@ -125,3 +125,10 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_ip]
         target_label: __address__
         replacement: ${1}:8080
+
+  - job_name: 'vpc2-backend'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+        - '10.1.23.243:32097'
+        - '10.1.25.44:32097'
