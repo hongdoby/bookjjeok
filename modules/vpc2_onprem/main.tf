@@ -195,9 +195,12 @@ resource "aws_instance" "nat_instance" {
   user_data = <<-EOF
     #!/bin/bash
     IFACE=$(ip route | grep default | awk '{print $5}')
+    PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
     echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
     sysctl -p
     iptables -t nat -A POSTROUTING -o $IFACE -j MASQUERADE
+    iptables -t nat -A PREROUTING -i $IFACE -p tcp -d $PRIVATE_IP --dport 443 -j DNAT --to-destination ${var.envoy_node_ip}:${var.envoy_nodeport_https}
+    iptables -t nat -A PREROUTING -i $IFACE -p tcp -d $PRIVATE_IP --dport 80  -j DNAT --to-destination ${var.envoy_node_ip}:${var.envoy_nodeport_http}
     apt-get install -y iptables-persistent
     netfilter-persistent save
   EOF
