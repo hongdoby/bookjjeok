@@ -23,7 +23,7 @@ spec:
       expr: 1 - avg(node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
     - record: job:bookjjeok_pod_pending:count
       expr: |
-        count(kube_pod_status_phase{phase="Pending", namespace="bookjjeok"}) or vector(0)
+        count(kube_pod_status_phase{phase="Pending", namespace="bookjjeok"} == 1) or vector(0)
     - record: job:bookjjeok_db_pool_usage:ratio
       expr: |
         avg(hikaricp_connections_active{namespace="bookjjeok"})
