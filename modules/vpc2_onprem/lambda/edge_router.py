@@ -33,8 +33,8 @@ def lambda_handler(event, context):
         request['origin'] = {
             'custom': {
                 'domainName':        VPC1_ALB,
-                'port':              443,
-                'protocol':          'https',
+                'port':              80,
+                'protocol':          'http',
                 'readTimeout':       30,
                 'keepaliveTimeout':  5,
                 'customHeaders':     {},
