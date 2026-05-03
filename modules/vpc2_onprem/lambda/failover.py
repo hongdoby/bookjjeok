@@ -41,19 +41,9 @@ def query_prometheus(query):
 
 
 def get_metrics():
-    # CPU 사용률 (전체 노드 평균)
-    cpu = query_prometheus(
-        '1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))'
-    )
-    # 에러율 (5xx / 전체)
-    error_rate = query_prometheus(
-        'sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class="5"}[5m])) '
-        '/ sum(rate(envoy_http_downstream_rq_total[5m]))'
-    )
-    # P95 응답시간 (ms)
-    latency = query_prometheus(
-        'histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket[5m])) by (le))'
-    )
+    cpu        = query_prometheus('job:node_cpu_usage:avg5m')
+    error_rate = query_prometheus('job:envoy_error_rate:rate5m')
+    latency    = query_prometheus('job:envoy_latency_p95:rate5m')
     return cpu, error_rate, latency
 
 

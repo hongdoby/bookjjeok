@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: bookjjeok-alert-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: bookjjeok.alerts
+    rules:
+    - alert: BookjjeokHighCPU
+      expr: job:node_cpu_usage:avg5m > 0.80
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC2 노드 CPU 과부하 - 페일오버 임박"
+        description: "CPU 사용률 {{ $value | humanizePercentage }} (임계치: 80%)"
+    - alert: BookjjeokHighErrorRate
+      expr: job:envoy_error_rate:rate5m > 0.05
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "API 5xx 에러율 급증 - 페일오버 임박"
+        description: "5xx 에러율 {{ $value | humanizePercentage }} (임계치: 5%)"
+    - alert: BookjjeokHighLatency
+      expr: job:envoy_latency_p95:rate5m > 2000
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "API P95 응답시간 초과"
+        description: "P95 응답시간 {{ $value }}ms (임계치: 2000ms)"

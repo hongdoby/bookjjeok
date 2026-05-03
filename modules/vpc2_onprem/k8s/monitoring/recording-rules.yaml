@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: bookjjeok-recording-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: bookjjeok.recording
+    interval: 30s
+    rules:
+    - record: job:node_cpu_usage:avg5m
+      expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))
+    - record: job:envoy_error_rate:rate5m
+      expr: |
+        sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class="5"}[5m]))
+        / sum(rate(envoy_http_downstream_rq_total[5m]))
+    - record: job:envoy_latency_p95:rate5m
+      expr: |
+        histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket[5m])) by (le))
