@@ -47,3 +47,10 @@ spec:
           + 5  * (1 - clamp(job:bookjjeok_db_pool_usage:ratio, 0, 1)),
           0, 100
         )
+    - record: job:bookjjeok_vpc2_weight
+      expr: |
+        100 * (job:bookjjeok_health_score >= bool 80)
+        + 70 * (job:bookjjeok_health_score >= bool 60) * (job:bookjjeok_health_score < bool 80)
+        + 30 * (job:bookjjeok_health_score >= bool 40) * (job:bookjjeok_health_score < bool 60)
+    - record: job:bookjjeok_vpc1_weight
+      expr: 100 - job:bookjjeok_vpc2_weight
