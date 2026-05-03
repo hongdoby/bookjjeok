@@ -4,74 +4,61 @@ import urllib.request
 import urllib.parse
 import boto3
 
-# ── 설정값 (Lambda 환경변수로 주입)
-PROMETHEUS_URL    = os.environ.get('PROMETHEUS_URL', 'http://10.1.23.243:30090')
-DISTRIBUTION_ID   = os.environ['CLOUDFRONT_DISTRIBUTION_ID']       # E21FET8W62SYTV
-VPC1_ORIGIN_ID    = os.environ.get('VPC1_ORIGIN_ID', 'VPC1-Cloud-ALB-Origin')
-ORIGIN_GROUP_ID   = os.environ.get('ORIGIN_GROUP_ID', 'bookjjeok-backend-origin-group')
-REGION            = os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-2')
+PROMETHEUS_URL  = os.environ.get('PROMETHEUS_URL', 'http://10.1.23.243:30090')
+DISTRIBUTION_ID = os.environ['CLOUDFRONT_DISTRIBUTION_ID']
+VPC1_ORIGIN_ID  = os.environ.get('VPC1_ORIGIN_ID', 'VPC1-Cloud-ALB-Origin')
+ORIGIN_GROUP_ID = os.environ.get('ORIGIN_GROUP_ID', 'bookjjeok-backend-origin-group')
+REGION          = os.environ.get('AWS_DEFAULT_REGION', 'ap-northeast-2')
 
-# 임계치
-CPU_THRESHOLD        = float(os.environ.get('CPU_THRESHOLD', '0.80'))     # 80%
-ERROR_RATE_THRESHOLD = float(os.environ.get('ERROR_RATE_THRESHOLD', '0.05'))  # 5%
-LATENCY_THRESHOLD_MS = float(os.environ.get('LATENCY_THRESHOLD_MS', '2000'))  # 2초
-
-# 페일백: 연속 N회 정상 확인 후 복구
-RECOVERY_THRESHOLD = int(os.environ.get('RECOVERY_THRESHOLD', '5'))
-
-BACKEND_PATHS = ['/api/*', '/login/*', '/oauth2/*']
-SSM_STATE_KEY    = '/bookjjeok/routing/state'
-SSM_RECOVERY_KEY = '/bookjjeok/routing/recovery-count'
+BACKEND_PATHS   = ['/api/*', '/login/*', '/oauth2/*']
+SSM_WEIGHTS_KEY = '/bookjjeok/routing/weights'
 
 cf_client  = boto3.client('cloudfront')
 ssm_client = boto3.client('ssm', region_name=REGION)
 
 
-# ── Prometheus 쿼리
 def query_prometheus(query):
     url = f"{PROMETHEUS_URL}/api/v1/query?query={urllib.parse.quote(query)}"
     try:
         with urllib.request.urlopen(url, timeout=5) as resp:
             data = json.loads(resp.read())
             if data['status'] == 'success' and data['data']['result']:
-                return float(data['data']['result'][0]['value'][1])
+                val = float(data['data']['result'][0]['value'][1])
+                return None if val != val else val  # NaN 처리
     except Exception as e:
-        print(f"Prometheus query failed ({query}): {e}")
+        print(f"Prometheus query failed: {e}")
     return None
 
 
-def get_metrics():
-    cpu        = query_prometheus('job:node_cpu_usage:avg5m')
-    error_rate = query_prometheus('job:envoy_error_rate:rate5m')
-    latency    = query_prometheus('job:envoy_latency_p95:rate5m')
-    return cpu, error_rate, latency
+def score_to_weights(score):
+    if score >= 80:
+        return {'vpc2': 100, 'vpc1': 0}
+    elif score >= 60:
+        return {'vpc2': 70, 'vpc1': 30}
+    elif score >= 40:
+        return {'vpc2': 30, 'vpc1': 70}
+    else:
+        return {'vpc2': 0, 'vpc1': 100}
 
 
-# ── SSM 상태 관리
-def get_state():
+def get_weights():
     try:
-        return ssm_client.get_parameter(Name=SSM_STATE_KEY)['Parameter']['Value']
+        val = ssm_client.get_parameter(Name=SSM_WEIGHTS_KEY)['Parameter']['Value']
+        return json.loads(val)
     except Exception:
-        return 'vpc2'
+        return {'vpc2': 100, 'vpc1': 0}
 
 
-def set_state(state):
-    ssm_client.put_parameter(Name=SSM_STATE_KEY, Value=state, Type='String', Overwrite=True)
+def set_weights(weights):
+    ssm_client.put_parameter(
+        Name=SSM_WEIGHTS_KEY,
+        Value=json.dumps(weights),
+        Type='String',
+        Overwrite=True
+    )
 
 
-def get_recovery_count():
-    try:
-        return int(ssm_client.get_parameter(Name=SSM_RECOVERY_KEY)['Parameter']['Value'])
-    except Exception:
-        return 0
-
-
-def set_recovery_count(n):
-    ssm_client.put_parameter(Name=SSM_RECOVERY_KEY, Value=str(n), Type='String', Overwrite=True)
-
-
-# ── CloudFront behavior 교체
-def update_behaviors(target_origin_id):
+def update_cf_origin(target_origin_id):
     resp   = cf_client.get_distribution_config(Id=DISTRIBUTION_ID)
     config = resp['DistributionConfig']
     etag   = resp['ETag']
@@ -89,54 +76,36 @@ def update_behaviors(target_origin_id):
             Id=DISTRIBUTION_ID,
             IfMatch=etag
         )
-        print(f"CloudFront behaviors updated → {target_origin_id}")
-    else:
-        print(f"Already pointing to {target_origin_id}, no update needed")
+        print(f"CloudFront → {target_origin_id}")
 
 
-# ── Lambda 핸들러
 def lambda_handler(event, context):
-    cpu, error_rate, latency = get_metrics()
-    state = get_state()
+    score           = query_prometheus('job:bookjjeok_health_score')
+    current_weights = get_weights()
 
-    print(f"[Metrics] CPU={cpu}, ErrorRate={error_rate}, P95Latency={latency}ms | State={state}")
+    print(f"[Health] Score={score} | Weights={current_weights}")
 
-    # None 처리: 메트릭 못 가져오면 현 상태 유지
-    if cpu is None and error_rate is None:
-        print("Cannot reach Prometheus, keeping current state")
-        return {'state': state, 'action': 'no_change'}
+    if score is None:
+        print("Cannot reach Prometheus, keeping current weights")
+        return {'score': None, 'weights': current_weights, 'action': 'no_change'}
 
-    is_degraded = (
-        (cpu is not None and cpu > CPU_THRESHOLD) or
-        (error_rate is not None and error_rate > ERROR_RATE_THRESHOLD) or
-        (latency is not None and latency > LATENCY_THRESHOLD_MS)
-    )
+    new_weights = score_to_weights(score)
+    action      = 'no_change'
 
-    action = 'no_change'
+    if new_weights != current_weights:
+        set_weights(new_weights)
+        action = f"{current_weights} → {new_weights}"
+        print(f"Weights updated: {action}")
 
-    if is_degraded and state == 'vpc2':
-        print(f"Degraded → failover to VPC1")
-        update_behaviors(VPC1_ORIGIN_ID)
-        set_state('vpc1')
-        set_recovery_count(0)
-        action = 'failover'
-
-    elif not is_degraded and state == 'vpc1':
-        count = get_recovery_count() + 1
-        set_recovery_count(count)
-        print(f"Recovering ({count}/{RECOVERY_THRESHOLD})")
-
-        if count >= RECOVERY_THRESHOLD:
-            print(f"Stable for {RECOVERY_THRESHOLD} checks → failback to VPC2")
-            update_behaviors(ORIGIN_GROUP_ID)
-            set_state('vpc2')
-            set_recovery_count(0)
-            action = 'failback'
+        if new_weights['vpc2'] == 0:
+            update_cf_origin(ORIGIN_GROUP_ID)
+            print("Emergency: CloudFront → Origin Group")
+        elif current_weights['vpc2'] == 0 and new_weights['vpc2'] > 0:
+            update_cf_origin(VPC1_ORIGIN_ID)
+            print("Recovery: CloudFront → VPC1 (Lambda@Edge will handle weighting)")
 
     return {
-        'state':      get_state(),
-        'action':     action,
-        'cpu':        cpu,
-        'error_rate': error_rate,
-        'latency_ms': latency,
+        'score':   score,
+        'weights': new_weights,
+        'action':  action,
     }

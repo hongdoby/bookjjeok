@@ -33,3 +33,53 @@ spec:
       annotations:
         summary: "API P95 응답시간 초과"
         description: "P95 응답시간 {{ $value }}ms (임계치: 2000ms)"
+    - alert: BookjjeokHighMemory
+      expr: job:node_memory_usage:avg > 0.85
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "VPC2 노드 메모리 부족"
+        description: "메모리 사용률 {{ $value | humanizePercentage }} (임계치: 85%)"
+    - alert: BookjjeokPodPending
+      expr: job:bookjjeok_pod_pending:count > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "bookjjeok 네임스페이스 Pending 파드 발생"
+        description: "Pending 파드 {{ $value }}개 (스케줄링 불가 상태)"
+    - alert: BookjjeokHPAMaxed
+      expr: |
+        sum(kube_horizontalpodautoscaler_status_current_replicas{namespace="bookjjeok"})
+        / sum(kube_horizontalpodautoscaler_spec_max_replicas{namespace="bookjjeok"}) >= 1
+      for: 3m
+      labels:
+        severity: warning
+      annotations:
+        summary: "HPA 최대 레플리카 도달"
+        description: "bookjjeok HPA가 최대치에 도달했습니다. 스케일 아웃 불가 상태"
+    - alert: BookjjeokDBPoolSaturated
+      expr: job:bookjjeok_db_pool_usage:ratio > 0.80
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "DB 커넥션 풀 포화"
+        description: "DB 커넥션 풀 사용률 {{ $value | humanizePercentage }} (임계치: 80%)"
+    - alert: BookjjeokLowHealthScore
+      expr: job:bookjjeok_health_score < 60
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "VPC2 종합 건강 점수 하락"
+        description: "건강 점수 {{ $value | humanize }}점 (60점 미만 - 트래픽 분산 진행 중)"
+    - alert: BookjjeokCriticalHealthScore
+      expr: job:bookjjeok_health_score < 40
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC2 위기 - 전체 트래픽 VPC1 전환"
+        description: "건강 점수 {{ $value | humanize }}점 (40점 미만 - 완전 페일오버)"
