@@ -1,0 +1,25 @@
+alertmanager:
+  enabled: false
+grafana:
+  enabled: false
+kube-state-metrics:
+  service:
+    nodePort: 30080
+    type: NodePort
+nodeExporter:
+  enabled: true
+  hostPID: false
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    securityContext:
+      fsGroup: 2000
+      runAsNonRoot: true
+      runAsUser: 65534
+  service:
+    type: LoadBalancer
+prometheusOperator:
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false

@@ -71,7 +71,7 @@ scrape_configs:
         - '{job!=""}'
     static_configs:
       - targets:
-        - '10.1.25.44:30090'
+        - '10.1.16.2:9090'
     metric_relabel_configs:
       - source_labels: [job]
         regex: kubernetes-cadvisor
