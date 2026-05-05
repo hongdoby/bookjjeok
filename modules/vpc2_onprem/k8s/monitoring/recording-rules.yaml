@@ -11,14 +11,14 @@ spec:
     interval: 30s
     rules:
     - record: job:node_cpu_usage:avg5m
-      expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))
+      expr: 1 - min(avg by (instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])))
     - record: job:envoy_error_rate:rate5m
       expr: |
-        sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class="5"}[5m]))
-        / clamp_min(sum(rate(envoy_http_downstream_rq_total[5m])), 0.001)
+        sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class="5"}[2m]))
+        / clamp_min(sum(rate(envoy_http_downstream_rq_total[2m])), 0.001)
     - record: job:envoy_latency_p95:rate5m
       expr: |
-        histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket[5m])) by (le)) or vector(0)
+        histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket[2m])) by (le)) or vector(0)
     - record: job:node_memory_usage:avg
       expr: 1 - avg(node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
     - record: job:bookjjeok_pod_pending:count
@@ -39,12 +39,16 @@ spec:
     - record: job:bookjjeok_health_score
       expr: |
         clamp(
-          30 * clamp(1 - job:node_cpu_usage:avg5m / 0.80, 0, 1)
-          + 25 * clamp(1 - job:envoy_error_rate:rate5m / 0.05, 0, 1)
-          + 20 * clamp(1 - job:envoy_latency_p95:rate5m / 2000, 0, 1)
-          + 15 * clamp(1 - job:node_memory_usage:avg / 0.90, 0, 1)
-          + 5  * (1 - clamp(job:bookjjeok_pod_pending:count / 5, 0, 1))
-          + 5  * (1 - clamp(job:bookjjeok_db_pool_usage:ratio, 0, 1)),
+          (1 - clamp(
+              (job:envoy_error_rate:rate5m > bool 0.05)
+              + (job:bookjjeok_pod_pending:count > bool 1),
+              0, 1))
+          * (
+              45 * clamp(1 - job:envoy_latency_p95:rate5m / 2000, 0, 1)
+              + 30 * (1 - clamp(job:bookjjeok_db_pool_usage:ratio, 0, 1))
+              + 15 * clamp(1 - job:node_cpu_usage:avg5m / 0.80, 0, 1)
+              + 10 * clamp(1 - job:node_memory_usage:avg / 0.90, 0, 1)
+            ),
           0, 100
         )
     - record: job:bookjjeok_vpc2_weight
