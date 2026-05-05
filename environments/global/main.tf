@@ -16,3 +16,11 @@ output "website_url" {
 output "cloudfront_domain_name" {
   value = module.global.cloudfront_domain_name
 }
+
+output "log_bucket_id" {
+  value = module.global.log_bucket_id
+}
+
+output "log_bucket_arn" {
+  value = module.global.log_bucket_arn
+}

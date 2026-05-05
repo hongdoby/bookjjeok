@@ -36,10 +36,7 @@ output "private_route_table_ids" {
 # Bastion
 ########################################
 
-output "bastion_public_ips" {
-  description = "Bastion 퍼블릭 IP 목록"
-  value       = aws_eip.bastion[*].public_ip
-}
+
 
 ########################################
 # ALB

@@ -1,11 +1,134 @@
 global:
   scrape_interval: 15s
-
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
+  - job_name: 'vpc1-nodes'
+    metrics_path: /metrics
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /etc/prometheus/token
+    kubernetes_sd_configs:
+      - role: node
+        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /etc/prometheus/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: instance
+      - target_label: __address__
+        replacement: 7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
   - job_name: 'vpc2-nodes'
+    metrics_path: /metrics
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /etc/prometheus/vpc2-token
+    kubernetes_sd_configs:
+      - role: node
+        api_server: https://10.1.17.230:6443
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /etc/prometheus/vpc2-token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: instance
+      - target_label: __address__
+        replacement: 10.1.17.230:6443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+  - job_name: 'vpc1-prometheus-federation'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job!=""}'
     static_configs:
-      - targets: ['10.1.0.0:9100']
+      - targets:
+        - '10.0.14.175:30090'
+
+  - job_name: 'vpc2-prometheus-federation'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job!=""}'
+    static_configs:
+      - targets:
+        - '10.1.16.2:9090'
+    metric_relabel_configs:
+      - source_labels: [job]
+        regex: kubernetes-cadvisor
+        target_label: job
+        replacement: vpc2-cadvisor
+
+  - job_name: 'vpc1-kube-state-metrics'
+    static_configs:
+      - targets:
+        - '10.0.14.175:30080'
+
+  - job_name: 'vpc2-kube-state-metrics'
+    static_configs:
+      - targets:
+        - '10.1.25.44:30080'
+
+  - job_name: 'vpc1-cadvisor'
+    metrics_path: /metrics/cadvisor
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    bearer_token_file: /etc/prometheus/token
+    kubernetes_sd_configs:
+      - role: node
+        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /etc/prometheus/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: 7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+  - job_name: 'vpc1-backend'
+    metrics_path: /actuator/prometheus
+    kubernetes_sd_configs:
+      - role: pod
+        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /etc/prometheus/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: backend
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: ${1}:8080
+
+  - job_name: 'vpc2-backend'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+        - '10.1.23.243:32097'
+        - '10.1.25.44:32097'

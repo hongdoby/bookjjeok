@@ -69,6 +69,12 @@ variable "vpc1_owner_account_id" {
   default     = ""
 }
 
+variable "vpc2_cidr" {
+  description = "VPC2 CIDR 블록 (온프레미스)"
+  type        = string
+  default     = "10.1.0.0/16"
+}
+
 ########################################
 # Bastion
 ########################################
