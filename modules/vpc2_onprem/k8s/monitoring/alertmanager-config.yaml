@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: bookjjeok-slack
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  route:
+    receiver: slack-bookjjeok
+    groupBy: ['alertname', 'severity']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+  receivers:
+  - name: slack-bookjjeok
+    slackConfigs:
+    - apiURL:
+        name: slack-webhook-secret
+        key: url
+      channel: '#최종프로젝트-4조'
+      sendResolved: true
+      title: '[{{ .Status | toUpper }}] {{ .CommonAnnotations.summary }}'
+      text: '{{ .CommonAnnotations.description }}'
+      iconEmoji: ':rotating_light:'
