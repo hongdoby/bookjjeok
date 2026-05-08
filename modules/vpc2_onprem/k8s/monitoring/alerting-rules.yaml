@@ -1,0 +1,143 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: bookjjeok-alerting-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+
+  # -------------------------------------------------------
+  # 1. Health Score 기반 페일오버 Alert (팀원 요청 반영)
+  # -------------------------------------------------------
+  - name: bookjjeok.alert.healthscore
+    interval: 30s
+    rules:
+    - alert: HealthScoreWarning
+      expr: job:bookjjeok_health_score < 80
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "VPC2 Health Score 경고"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC2 70% 전환 상태입니다."
+
+    - alert: HealthScoreCritical
+      expr: job:bookjjeok_health_score < 60
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC2 Health Score 위험"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC2 30% 전환 상태입니다."
+
+    - alert: HealthScoreFailover
+      expr: job:bookjjeok_health_score < 40
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC1 100% 페일오버 발동"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC1으로 전체 전환합니다."
+
+    - alert: SafetyNetErrorRate
+      expr: job:envoy_error_rate:rate5m > 0.05
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "Safety Net 발동 — 에러율 5% 초과"
+        description: "현재 에러율 {{ $value | humanizePercentage }} — 즉시 점검이 필요합니다."
+
+  # -------------------------------------------------------
+  # 2. Redis 장애 시나리오 Alert
+  # -------------------------------------------------------
+  - name: bookjjeok.alert.redis
+    interval: 30s
+    rules:
+    - alert: RedisCacheMissSurge
+      expr: |
+        rate(cache_gets_total{result="miss", namespace="bookjjeok"}[2m])
+        / clamp_min(rate(cache_gets_total{namespace="bookjjeok"}[2m]), 0.001)
+        > 0.5
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Redis Cache Miss 급증"
+        description: "Cache Miss율 {{ $value | humanizePercentage }} 초과 — Redis 장애 가능성이 있습니다."
+
+    - alert: HikariCPConnectionSurge
+      expr: avg(hikaricp_connections_active{namespace="bookjjeok"}) > 7
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "HikariCP 커넥션 경합 감지"
+        description: "Active 커넥션 {{ $value | printf \"%.1f\" }}개 — Redis 장애로 인한 DB 직접 조회 폭증 가능성이 있습니다."
+
+    - alert: ApiResponseTimeSurge
+      expr: |
+        rate(http_server_requests_seconds_sum{namespace="bookjjeok"}[2m])
+        / clamp_min(rate(http_server_requests_seconds_count{namespace="bookjjeok"}[2m]), 0.001)
+        > 3
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "API 응답시간 급증"
+        description: "평균 응답시간 {{ $value | printf \"%.2f\" }}s — 기준치 초과입니다."
+
+  # -------------------------------------------------------
+  # 3. StressChaos 시나리오 Alert
+  # -------------------------------------------------------
+  - name: bookjjeok.alert.stress
+    interval: 30s
+    rules:
+    - alert: ContainerCPUSaturation
+      expr: |
+        rate(container_cpu_usage_seconds_total{namespace="bookjjeok", container!=""}[1m])
+        > 0.9
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "CPU 포화 감지"
+        description: "Pod {{ $labels.pod }} CPU 사용률 {{ $value | humanizePercentage }} — StressChaos 주입 중일 수 있습니다."
+
+    - alert: HPAScaleOutTriggered
+      expr: |
+        kube_horizontalpodautoscaler_status_desired_replicas{namespace="bookjjeok"}
+        > kube_horizontalpodautoscaler_status_current_replicas{namespace="bookjjeok"}
+      for: 30s
+      labels:
+        severity: warning
+      annotations:
+        summary: "HPA 스케일 아웃 트리거됨"
+        description: "{{ $labels.horizontalpodautoscaler }} — desired {{ $value }}개로 증가 중입니다."
+
+    - alert: OOMKillDetected
+      expr: |
+        kube_pod_container_status_last_terminated_reason{
+          reason="OOMKilled",
+          namespace="bookjjeok"
+        } == 1
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        summary: "OOMKill 발생"
+        description: "Pod {{ $labels.pod }} 컨테이너 {{ $labels.container }} OOMKill 발생했습니다."
+
+    - alert: NodeCPULimitReached
+      expr: |
+        kube_node_status_allocatable{resource="cpu"}
+        / kube_node_status_capacity{resource="cpu"}
+        < 0.1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC2 노드 CPU 한계 도달"
+        description: "노드 {{ $labels.node }} 가용 CPU {{ $value | humanizePercentage }} 미만 — Pod Pending 발생 가능합니다."
