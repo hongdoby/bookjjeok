@@ -1,5 +1,15 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 5s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
@@ -13,7 +23,7 @@ scrape_configs:
     bearer_token_file: /etc/prometheus/token
     kubernetes_sd_configs:
       - role: node
-        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        api_server: https://YOUR_EKS_ENDPOINT
         tls_config:
           insecure_skip_verify: true
         bearer_token_file: /etc/prometheus/token
@@ -23,7 +33,7 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_node_name]
         target_label: instance
       - target_label: __address__
-        replacement: 7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com:443
+        replacement: YOUR_EKS_ENDPOINT:443
       - source_labels: [__meta_kubernetes_node_name]
         regex: (.+)
         target_label: __metrics_path__
@@ -61,7 +71,7 @@ scrape_configs:
         - '{job!=""}'
     static_configs:
       - targets:
-        - '10.0.14.175:30090'
+        - '10.0.14.174:31739'
 
   - job_name: 'vpc2-prometheus-federation'
     honor_labels: true
@@ -71,7 +81,7 @@ scrape_configs:
         - '{job!=""}'
     static_configs:
       - targets:
-        - '10.1.16.2:9090'
+        - '10.1.25.44:30090'
     metric_relabel_configs:
       - source_labels: [job]
         regex: kubernetes-cadvisor
@@ -81,7 +91,7 @@ scrape_configs:
   - job_name: 'vpc1-kube-state-metrics'
     static_configs:
       - targets:
-        - '10.0.14.175:30080'
+        - '10.0.14.174:30080'
 
   - job_name: 'vpc2-kube-state-metrics'
     static_configs:
@@ -96,7 +106,7 @@ scrape_configs:
     bearer_token_file: /etc/prometheus/token
     kubernetes_sd_configs:
       - role: node
-        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        api_server: https://YOUR_EKS_ENDPOINT
         tls_config:
           insecure_skip_verify: true
         bearer_token_file: /etc/prometheus/token
@@ -104,7 +114,7 @@ scrape_configs:
       - action: labelmap
         regex: __meta_kubernetes_node_label_(.+)
       - target_label: __address__
-        replacement: 7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com:443
+        replacement: YOUR_EKS_ENDPOINT:443
       - source_labels: [__meta_kubernetes_node_name]
         regex: (.+)
         target_label: __metrics_path__
@@ -114,7 +124,7 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     kubernetes_sd_configs:
       - role: pod
-        api_server: https://7482E2DDFEC38EE61778E1B761925CCB.gr7.ap-northeast-2.eks.amazonaws.com
+        api_server: https://YOUR_EKS_ENDPOINT
         tls_config:
           insecure_skip_verify: true
         bearer_token_file: /etc/prometheus/token
@@ -125,10 +135,3 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_ip]
         target_label: __address__
         replacement: ${1}:8080
-
-  - job_name: 'vpc2-backend'
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets:
-        - '10.1.23.243:32097'
-        - '10.1.25.44:32097'

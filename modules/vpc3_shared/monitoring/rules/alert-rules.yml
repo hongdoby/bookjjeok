@@ -1,0 +1,67 @@
+groups:
+  - name: bookjjeok.alert.healthscore
+    rules:
+    - alert: HealthScoreWarning
+      expr: job:bookjjeok_health_score < 80
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "VPC2 Health Score 경고"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC2 70% 전환 상태입니다."
+    - alert: HealthScoreCritical
+      expr: job:bookjjeok_health_score < 60
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC2 Health Score 위험"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC2 30% 전환 상태입니다."
+    - alert: HealthScoreFailover
+      expr: job:bookjjeok_health_score < 40
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "VPC1 100% 페일오버 발동"
+        description: "Health Score {{ $value | printf \"%.1f\" }} — VPC1으로 전체 전환합니다."
+    - alert: SafetyNetErrorRate
+      expr: job:envoy_error_rate:rate5m > 0.05
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "Safety Net 발동 — 에러율 5% 초과"
+        description: "현재 에러율 {{ $value | humanizePercentage }} — 즉시 점검이 필요합니다."
+  - name: bookjjeok.alert.redis
+    rules:
+    - alert: RedisCacheMissSurge
+      expr: |
+        rate(cache_gets_total{result="miss", job="vpc1-backend"}[2m])
+        / clamp_min(rate(cache_gets_total{job="vpc1-backend"}[2m]), 0.001)
+        > 0.5
+      for: 30s
+      labels:
+        severity: warning
+      annotations:
+        summary: "Redis Cache Miss 급증"
+        description: "Cache Miss율 {{ $value | humanizePercentage }} 초과 — Redis 장애 가능성이 있습니다."
+    - alert: HikariCPConnectionSurge
+      expr: avg(hikaricp_connections_active{job="vpc1-backend"}) > 15
+      for: 30s
+      labels:
+        severity: warning
+      annotations:
+        summary: "HikariCP 커넥션 경합 감지"
+        description: "Active 커넥션 {{ $value | printf \"%.1f\" }}개 — Redis 장애로 인한 DB 직접 조회 폭증 가능성이 있습니다."
+    - alert: ApiResponseTimeSurge
+      expr: |
+        rate(http_server_requests_seconds_sum{job="vpc1-backend"}[2m])
+        / clamp_min(rate(http_server_requests_seconds_count{job="vpc1-backend"}[2m]), 0.001)
+        > 0.1
+      for: 30s
+      labels:
+        severity: warning
+      annotations:
+        summary: "API 응답시간 급증"
+        description: "평균 응답시간 {{ $value | printf \"%.2f\" }}s — 기준치(100ms) 초과입니다."

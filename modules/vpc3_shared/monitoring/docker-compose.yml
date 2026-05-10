@@ -9,6 +9,20 @@ services:
       - prometheus_data:/prometheus
       - /home/ec2-user/.kube/token:/etc/prometheus/token
       - /home/ec2-user/monitoring/vpc2-token:/etc/prometheus/vpc2-token
+      - ./rules:/etc/prometheus/rules
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--alertmanager.notification-queue-capacity=10000'
+    restart: always
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
     restart: always
   grafana:
     image: grafana/grafana
@@ -19,7 +33,7 @@ services:
       - .env
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
-      - GF_SERVER_DOMAIN=bookjjeok-cloud-vpc3-alb-570474290.ap-northeast-2.elb.amazonaws.com
+      - GF_SERVER_DOMAIN=YOUR_ALB_DOMAIN
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
