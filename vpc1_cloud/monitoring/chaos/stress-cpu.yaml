@@ -1,0 +1,17 @@
+﻿apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: stress-cpu
+  namespace: chaos-mesh
+spec:
+  mode: one
+  selector:
+    namespaces:
+      - bookjjeok
+    labelSelectors:
+      app: backend
+  stressors:
+    cpu:
+      workers: 8
+      load: 100
+  duration: '5m'
